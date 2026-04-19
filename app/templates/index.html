@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>职场沟通 Copilot MVP</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>职场沟通 Copilot MVP</h1>
+    <form id="reply-form">
+      <label>联系人
+        <select name="person_id" required>
+          {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}{% if person.role %}（{{ person.role }}）{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>事项
+        <select name="matter_id" required>
+          {% for matter in matters %}
+          <option value="{{ matter.id }}">{{ matter.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>收到的消息
+        <textarea name="incoming_message" rows="4" required></textarea>
+      </label>
+
+      <label>你的沟通目标
+        <textarea name="communication_goal" rows="3" required></textarea>
+      </label>
+
+      <fieldset>
+        <legend>风格快捷调节</legend>
+        {% for modifier in modifiers %}
+          <label class="inline">
+            <input type="checkbox" name="modifiers" value="{{ modifier }}" /> {{ modifier }}
+          </label>
+        {% endfor %}
+      </fieldset>
+
+      <button type="submit">生成三版回复</button>
+    </form>
+
+    <section id="result" class="hidden">
+      <h2>生成结果</h2>
+      <p id="memory"></p>
+      <div class="card">
+        <h3>1) 审慎版</h3>
+        <textarea id="prudent" rows="4"></textarea>
+        <button class="save-btn" data-target="prudent">保存此版本</button>
+      </div>
+      <div class="card">
+        <h3>2) 简洁版</h3>
+        <textarea id="concise" rows="4"></textarea>
+        <button class="save-btn" data-target="concise">保存此版本</button>
+      </div>
+      <div class="card">
+        <h3>3) 推进版</h3>
+        <textarea id="push_forward" rows="4"></textarea>
+        <button class="save-btn" data-target="push_forward">保存此版本</button>
+      </div>
+      <p id="save-status"></p>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('reply-form');
+    const resultSection = document.getElementById('result');
+    const memoryEl = document.getElementById('memory');
+    const saveStatus = document.getElementById('save-status');
+    let lastPayload = null;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const payload = {
+        person_id: Number(data.get('person_id')),
+        matter_id: Number(data.get('matter_id')),
+        incoming_message: data.get('incoming_message'),
+        communication_goal: data.get('communication_goal'),
+        modifiers: data.getAll('modifiers'),
+      };
+
+      const res = await fetch('/generate_reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        alert('生成失败，请检查 OpenAI Key 或服务日志。');
+        return;
+      }
+
+      const output = await res.json();
+      document.getElementById('prudent').value = output.prudent;
+      document.getElementById('concise').value = output.concise;
+      document.getElementById('push_forward').value = output.push_forward;
+      memoryEl.textContent = `记忆上下文：${output.memory_context}`;
+      resultSection.classList.remove('hidden');
+      lastPayload = { ...payload, ...output };
+      saveStatus.textContent = '';
+    });
+
+    document.querySelectorAll('.save-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!lastPayload) return;
+        const target = btn.dataset.target;
+        const selectedReply = document.getElementById(target).value;
+        const savePayload = {
+          ...lastPayload,
+          prudent: document.getElementById('prudent').value,
+          concise: document.getElementById('concise').value,
+          push_forward: document.getElementById('push_forward').value,
+          selected_reply: selectedReply
+        };
+
+        const res = await fetch('/save_reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savePayload)
+        });
+        if (!res.ok) {
+          saveStatus.textContent = '保存失败';
+          return;
+        }
+        const out = await res.json();
+        saveStatus.textContent = `已保存，记录 ID: ${out.history_id}`;
+      });
+    });
+  </script>
+</body>
+</html>

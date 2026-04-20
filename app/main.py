@@ -47,8 +47,6 @@ def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(get_db))
     matter = db.get(Matter, payload.matter_id)
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
-    if matter.person_id != payload.person_id:
-        raise HTTPException(status_code=400, detail="Person and matter do not match")
 
     memory_context = get_memory_context(db, payload.person_id, payload.matter_id)
     prompt = build_prompt(

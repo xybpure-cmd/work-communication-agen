@@ -3,135 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>职场沟通 Copilot MVP</title>
+  <title>工作沟通辅助网页工具 V1.0</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="container">
-    <h1>职场沟通 Copilot MVP</h1>
+    <header>
+      <h1>工作沟通辅助网页工具 V1.0</h1>
+      <p class="subtitle">单页轻量工具：基于 4 个输入字段，生成 1 版可编辑的回复草案。</p>
+    </header>
+
     <form id="reply-form">
-      <label>联系人
-        <select name="person_id" required>
-          {% for person in people %}
-          <option value="{{ person.id }}">{{ person.name }}{% if person.role %}（{{ person.role }}）{% endif %}</option>
-          {% endfor %}
-        </select>
+      <label>收到的消息（可空）
+        <textarea name="incoming_message" rows="4" placeholder="可留空，例如：这周三前能不能给我一版项目进度说明？"></textarea>
       </label>
 
-      <label>事项
-        <select name="matter_id" required>
-          {% for matter in matters %}
-          <option value="{{ matter.id }}">{{ matter.title }}</option>
-          {% endfor %}
-        </select>
+      <label>沟通背景
+        <textarea name="communication_background" rows="4" required placeholder="例如：对方是跨部门合作人，本周需向总监汇报，当前数据还缺采购侧确认。"></textarea>
       </label>
 
-      <label>收到的消息
-        <textarea name="incoming_message" rows="4" required></textarea>
+      <label>参考材料
+        <textarea name="reference_material" rows="4" required placeholder="例如：当前完成度 70%；风险点：供应商交付延迟 2 天；备选方案 B 可兜底。"></textarea>
       </label>
 
-      <label>你的沟通目标
-        <textarea name="communication_goal" rows="3" required></textarea>
+      <label>我的意图
+        <textarea name="my_intent" rows="4" required placeholder="例如：争取延期到周五并说明风险，语气专业、克制、不推责。"></textarea>
       </label>
 
-      <fieldset>
-        <legend>风格快捷调节</legend>
-        {% for modifier in modifiers %}
-          <label class="inline">
-            <input type="checkbox" name="modifiers" value="{{ modifier }}" /> {{ modifier }}
-          </label>
-        {% endfor %}
-      </fieldset>
-
-      <button type="submit">生成三版回复</button>
+      <div class="actions">
+        <button type="submit">生成</button>
+        <button type="button" id="clear-btn" class="secondary">清空</button>
+      </div>
     </form>
 
-    <section id="result" class="hidden">
-      <h2>生成结果</h2>
-      <p id="memory"></p>
-      <div class="card">
-        <h3>1) 审慎版</h3>
-        <textarea id="prudent" rows="4"></textarea>
-        <button class="save-btn" data-target="prudent">保存此版本</button>
+    <section id="result">
+      <div class="result-head">
+        <h2>一版回复草案</h2>
+        <button type="button" id="copy-btn" class="secondary">复制</button>
       </div>
-      <div class="card">
-        <h3>2) 简洁版</h3>
-        <textarea id="concise" rows="4"></textarea>
-        <button class="save-btn" data-target="concise">保存此版本</button>
-      </div>
-      <div class="card">
-        <h3>3) 推进版</h3>
-        <textarea id="push_forward" rows="4"></textarea>
-        <button class="save-btn" data-target="push_forward">保存此版本</button>
-      </div>
-      <p id="save-status"></p>
+      <textarea id="draft_reply" rows="8" readonly placeholder="点击“生成”后，将在此显示一版回复草案。"></textarea>
     </section>
   </main>
 
   <script>
     const form = document.getElementById('reply-form');
-    const resultSection = document.getElementById('result');
-    const memoryEl = document.getElementById('memory');
-    const saveStatus = document.getElementById('save-status');
-    let lastPayload = null;
+    const clearBtn = document.getElementById('clear-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const draftReplyEl = document.getElementById('draft_reply');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const data = new FormData(form);
       const payload = {
-        person_id: Number(data.get('person_id')),
-        matter_id: Number(data.get('matter_id')),
-        incoming_message: data.get('incoming_message'),
-        communication_goal: data.get('communication_goal'),
-        modifiers: data.getAll('modifiers'),
+        incoming_message: (data.get('incoming_message') || '').toString(),
+        communication_background: (data.get('communication_background') || '').toString(),
+        reference_material: (data.get('reference_material') || '').toString(),
+        my_intent: (data.get('my_intent') || '').toString(),
       };
 
       const res = await fetch('/generate_reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        alert('生成失败，请检查 OpenAI Key 或服务日志。');
+        alert('生成失败，请检查输入内容、OpenAI Key 或服务日志。');
         return;
       }
 
       const output = await res.json();
-      document.getElementById('prudent').value = output.prudent;
-      document.getElementById('concise').value = output.concise;
-      document.getElementById('push_forward').value = output.push_forward;
-      memoryEl.textContent = `记忆上下文：${output.memory_context}`;
-      resultSection.classList.remove('hidden');
-      lastPayload = { ...payload, ...output };
-      saveStatus.textContent = '';
+      draftReplyEl.value = output.draft_reply || '';
     });
 
-    document.querySelectorAll('.save-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!lastPayload) return;
-        const target = btn.dataset.target;
-        const selectedReply = document.getElementById(target).value;
-        const savePayload = {
-          ...lastPayload,
-          prudent: document.getElementById('prudent').value,
-          concise: document.getElementById('concise').value,
-          push_forward: document.getElementById('push_forward').value,
-          selected_reply: selectedReply
-        };
+    clearBtn.addEventListener('click', () => {
+      form.reset();
+      draftReplyEl.value = '';
+    });
 
-        const res = await fetch('/save_reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(savePayload)
-        });
-        if (!res.ok) {
-          saveStatus.textContent = '保存失败';
-          return;
-        }
-        const out = await res.json();
-        saveStatus.textContent = `已保存，记录 ID: ${out.history_id}`;
-      });
+    copyBtn.addEventListener('click', async () => {
+      if (!draftReplyEl.value) return;
+      try {
+        await navigator.clipboard.writeText(draftReplyEl.value);
+        copyBtn.textContent = '已复制';
+        setTimeout(() => { copyBtn.textContent = '复制'; }, 1200);
+      } catch (_) {
+        alert('复制失败，请手动复制。');
+      }
     });
   </script>
 </body>

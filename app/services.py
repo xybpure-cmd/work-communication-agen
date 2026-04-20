@@ -11,27 +11,10 @@ def build_mock_reply(
     reference = reference_material.strip()
     intent = my_intent.strip()
 
-    if incoming_text:
-        return "\n".join(
-            [
-                "您好，收到您的消息。",
-                "",
-                f"结合当前情况：{background}。",
-                f"目前可同步的信息是：{reference}。",
-                "",
-                f"基于以上信息，我这边建议按以下方向推进：{intent}。",
-                "如果您认可，我会按这个节奏继续执行，并及时同步最新进展。",
-            ]
-        )
-
-    return "\n".join(
-        [
-            "您好，我这边先主动同步一下当前进展。",
-            "",
-            f"沟通背景：{background}。",
-            f"目前关键信息：{reference}。",
-            "",
-            f"接下来我希望推进的方向是：{intent}。",
-            "如您有其他建议，我可以据此调整并尽快落实。",
-        ]
+    context_line = (
+        f"收到你的消息，结合当前情况（{background}），"
+        if incoming_text
+        else f"我这边先同步一下当前情况（{background}），"
     )
+    reference_line = f"补充信息是：{reference}，" if reference else ""
+    return f"{context_line}{reference_line}{intent}，辛苦你这边看下，如需我补充我会马上同步。"

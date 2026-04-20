@@ -1,54 +1,37 @@
-import os
-
-from openai import OpenAI
-
-
-SYSTEM_PROMPT = "你是一名资深中文职场沟通教练。"
-
-
-def build_prompt(
+def build_mock_reply(
     incoming_message: str,
     communication_background: str,
     reference_material: str,
     my_intent: str,
 ) -> str:
-    incoming_text = incoming_message.strip() or "（未提供）"
-    return f"""
-请基于以下信息生成“一版回复草案”。
+    """构建 V1.0 原型使用的本地回复草案（不调用模型）。"""
 
-要求：
-- 仅输出一段可直接发送或轻改后发送的中文回复草案；
-- 不编造关键事实；
-- 语气专业、清晰、自然；
-- 内容尽量覆盖回应、说明、诉求/建议（按输入场景择优）；
-- 不要输出多个版本，不要附加解释。
+    incoming_text = incoming_message.strip()
+    background = communication_background.strip()
+    reference = reference_material.strip()
+    intent = my_intent.strip()
 
-收到的消息：
-{incoming_text}
+    if incoming_text:
+        return "\n".join(
+            [
+                "您好，收到您的消息。",
+                "",
+                f"结合当前情况：{background}。",
+                f"目前可同步的信息是：{reference}。",
+                "",
+                f"基于以上信息，我这边建议按以下方向推进：{intent}。",
+                "如果您认可，我会按这个节奏继续执行，并及时同步最新进展。",
+            ]
+        )
 
-沟通背景：
-{communication_background}
-
-参考材料：
-{reference_material}
-
-我的意图：
-{my_intent}
-""".strip()
-
-
-def generate_reply_with_openai(prompt: str) -> str:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY 未配置")
-
-    client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
+    return "\n".join(
+        [
+            "您好，我这边先主动同步一下当前进展。",
+            "",
+            f"沟通背景：{background}。",
+            f"目前关键信息：{reference}。",
+            "",
+            f"接下来我希望推进的方向是：{intent}。",
+            "如您有其他建议，我可以据此调整并尽快落实。",
+        ]
     )
-
-    return (response.choices[0].message.content or "").strip()

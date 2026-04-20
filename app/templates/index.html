@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>工作沟通辅助网页工具 V1.0</title>
+  <title>工作沟通辅助工具 V1.0</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="container">
     <header>
-      <h1>工作沟通辅助网页工具 V1.0</h1>
-      <p class="subtitle">单页轻量工具：基于 4 个输入字段，生成 1 版可编辑的回复草案。</p>
+      <h1>工作沟通辅助工具 V1.0</h1>
+      <p class="subtitle">填写 4 个输入后，点击「生成回复」，即可得到 1 版回复草案（原型演示）。</p>
     </header>
 
     <form id="reply-form">
@@ -31,8 +31,7 @@
       </label>
 
       <div class="actions">
-        <button type="submit">生成</button>
-        <button type="button" id="clear-btn" class="secondary">清空</button>
+        <button type="submit">生成回复</button>
       </div>
     </form>
 
@@ -41,17 +40,45 @@
         <h2>一版回复草案</h2>
         <button type="button" id="copy-btn" class="secondary">复制</button>
       </div>
-      <textarea id="draft_reply" rows="8" readonly placeholder="点击“生成”后，将在此显示一版回复草案。"></textarea>
+      <textarea id="generated_reply" rows="12" readonly placeholder="点击“生成回复”后，将在此显示一版回复草案。"></textarea>
     </section>
   </main>
 
   <script>
     const form = document.getElementById('reply-form');
-    const clearBtn = document.getElementById('clear-btn');
     const copyBtn = document.getElementById('copy-btn');
-    const draftReplyEl = document.getElementById('draft_reply');
+    const generatedReplyEl = document.getElementById('generated_reply');
 
-    form.addEventListener('submit', async (e) => {
+    function buildMockReply(payload) {
+      const incomingMessage = payload.incoming_message.trim();
+      const background = payload.communication_background.trim();
+      const reference = payload.reference_material.trim();
+      const intent = payload.my_intent.trim();
+
+      if (incomingMessage) {
+        return [
+          '您好，收到您的消息。',
+          '',
+          `结合当前情况：${background}。`,
+          `目前可同步的信息是：${reference}。`,
+          '',
+          `基于以上信息，我这边建议按以下方向推进：${intent}。`,
+          '如果您认可，我会按这个节奏继续执行，并及时同步最新进展。'
+        ].join('\n');
+      }
+
+      return [
+        '您好，我这边先主动同步一下当前进展。',
+        '',
+        `沟通背景：${background}。`,
+        `目前关键信息：${reference}。`,
+        '',
+        `接下来我希望推进的方向是：${intent}。`,
+        '如您有其他建议，我可以据此调整并尽快落实。'
+      ].join('\n');
+    }
+
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const data = new FormData(form);
       const payload = {
@@ -61,30 +88,13 @@
         my_intent: (data.get('my_intent') || '').toString(),
       };
 
-      const res = await fetch('/generate_reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        alert('生成失败，请检查输入内容、OpenAI Key 或服务日志。');
-        return;
-      }
-
-      const output = await res.json();
-      draftReplyEl.value = output.draft_reply || '';
-    });
-
-    clearBtn.addEventListener('click', () => {
-      form.reset();
-      draftReplyEl.value = '';
+      generatedReplyEl.value = buildMockReply(payload);
     });
 
     copyBtn.addEventListener('click', async () => {
-      if (!draftReplyEl.value) return;
+      if (!generatedReplyEl.value) return;
       try {
-        await navigator.clipboard.writeText(draftReplyEl.value);
+        await navigator.clipboard.writeText(generatedReplyEl.value);
         copyBtn.textContent = '已复制';
         setTimeout(() => { copyBtn.textContent = '复制'; }, 1200);
       } catch (_) {

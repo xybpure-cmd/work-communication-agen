@@ -23,9 +23,10 @@ class Matter(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(150), nullable=False)
     detail: Mapped[str] = mapped_column(Text, nullable=True)
-    person_id: Mapped[int] = mapped_column(ForeignKey("people.id"), nullable=False)
+    # 为了方便非技术用户先跑通，事项可不强制绑定特定联系人。
+    person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id"), nullable=True)
 
-    person: Mapped[Person] = relationship("Person", back_populates="matters")
+    person: Mapped[Person | None] = relationship("Person", back_populates="matters")
     replies: Mapped[list["ReplyHistory"]] = relationship("ReplyHistory", back_populates="matter")
 
 
